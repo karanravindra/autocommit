@@ -1,15 +1,5 @@
-# Automations
+# autocommit
 
-This repository contains a collection of automations that I have created to automate various tasks.
+This is a simple script that can be used to automatically commit changes to a git repository.
 
-## Automations
-
-- [Autocommit](autocommit/README.md)
-
-## License
-
-This repository is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Contributing
-
-Feel free to contribute to this repository by creating a pull request.
+Upload your api key to `.env.example` and rename it to `.env`
