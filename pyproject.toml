@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autocommit"
+version = "0.1.0"
+description = "Automagically commit changes to git"
+authors = [
+    {name = "Karan Ravindra", email = "karan.ravindra1213@gmail.com"},
+]
+readme = "README.md"
+keywords = ["git", "automation", "commit", "ai"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = ["InquirerPy", "python-dotenv", "groq"]
+
+[project.optional-dependencies]
+dev = ["ruff", "pytest"]
