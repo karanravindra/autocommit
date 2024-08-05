@@ -59,7 +59,7 @@ if __name__ == "__main__":
                     You are a GitHub commit writer. Write a well-crafted GitHub commit based off this git diff.
                     Consider each change made as well as how each change relates to other changes.
                     Your commit message should be short.
-                    Respond using JSON in the following schema:
+                    Respond using JSON ONLY in the following schema:
                     { "message" : "Your commit message" }""",
                 },
                 {"role": "user", "content": str(diff)},
