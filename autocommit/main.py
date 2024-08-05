@@ -43,12 +43,9 @@ def get_staged_diff():
         print(f"An error occurred: {e}")
 
 
-if __name__ == "__main__":
-    diff = get_staged_diff()
-
-    client = Groq(api_key=GROQ_API_KEY)
+def get_responses(diff: str) -> list[str]:
     responses = []
-
+    client = Groq(api_key=GROQ_API_KEY)
     for _ in range(3):
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -79,7 +76,13 @@ if __name__ == "__main__":
             break
         responses.append(response["message"])
 
-    # Only show the InquirerPy prompt after all responses are generated
+    return responses
+
+
+def main():
+    diff = get_staged_diff()
+    responses = get_responses(diff)
+
     if responses:
         print("Responses:")
         choices = responses
@@ -98,3 +101,7 @@ if __name__ == "__main__":
         # git commit -m "Your commit message"
         subprocess.run(["git", "commit", "-m", str(result["option"])])
         print("Committed successfully.")
+
+
+if __name__ == "__main__":
+    main()

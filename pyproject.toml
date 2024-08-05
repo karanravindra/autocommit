@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autocommit"
-version = "0.1.0"
+version = "0.1.1"
 description = "Automagically commit changes to git"
 authors = [
     {name = "Karan Ravindra", email = "karan.ravindra1213@gmail.com"},
@@ -20,3 +20,6 @@ dependencies = ["InquirerPy", "python-dotenv", "groq"]
 
 [project.optional-dependencies]
 dev = ["ruff", "pytest"]
+
+[project.scripts]
+autocommit = "autocommit.main:main"
