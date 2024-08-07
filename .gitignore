@@ -3,4 +3,6 @@
 dist
 **__pycache__
 
+tmp
+
 config.json
