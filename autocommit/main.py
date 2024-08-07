@@ -1,13 +1,16 @@
 import subprocess
+import tomllib
 import os
 
-from dotenv import load_dotenv
 from groq import Groq
 from InquirerPy import prompt
 
-load_dotenv()
+# load the config file
+config = tomllib.loads(open("config.toml").read())
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_KEY = config[config["use"]]["api_key"]
+GROQ_MODEL = config[config["use"]]["model"]
+SYSTEM_PROMPT = config[config["use"]]["system_prompt"]
 
 
 def get_staged_diff():
@@ -48,16 +51,11 @@ def get_responses(diff: str) -> list[str]:
     client = Groq(api_key=GROQ_API_KEY)
     for _ in range(3):
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model=GROQ_MODEL,
             messages=[
                 {
                     "role": "system",
-                    "content": """
-                    You are a GitHub commit writer. Write a well-crafted GitHub commit based off this git diff.
-                    Consider each change made as well as how each change relates to other changes.
-                    Your commit message should be short.
-                    Respond using JSON ONLY in the following schema:
-                    { "message" : "Your commit message" }""",
+                    "content": SYSTEM_PROMPT,
                 },
                 {"role": "user", "content": str(diff)},
             ],
@@ -82,7 +80,7 @@ def get_responses(diff: str) -> list[str]:
 def main():
     diff = get_staged_diff()
     responses = get_responses(diff)
-
+    responses = None
     if responses:
         print("Responses:")
         choices = responses

@@ -1,0 +1,6 @@
+use = "groq"
+
+[groq]
+api_key = "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"
+model = "llama-3.1-8b-instant"
+system_prompt = "\nYou are a GitHub commit writer. Write a well-crafted GitHub commit based off this git diff.\nConsider each change made as well as how each change relates to other changes.\nYour commit message should be short.\nRespond using JSON ONLY in the following schema:\n{ 'message' : 'Your commit message' }"
