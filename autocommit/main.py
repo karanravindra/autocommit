@@ -1,13 +1,17 @@
-import subprocess
+import time
 import os
+import subprocess
+import sys
+import textwrap
+import json
 
-from dotenv import load_dotenv
 from groq import Groq
-from InquirerPy import prompt
-
-load_dotenv()
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+from rich import print as rprint
+import rich_click as click
+from InquirerPy import prompt, inquirer
+from InquirerPy.base.control import Choice
+from InquirerPy.separator import Separator
+from yaspin import yaspin
 
 
 def get_staged_diff():
@@ -21,6 +25,7 @@ def get_staged_diff():
                 "Error: Could not get the diff. Make sure you're in a git repository and have staged changes."
             )
             print(result.stderr)
+
         else:
             if result.stdout:
                 filtered_diff = []
@@ -37,33 +42,33 @@ def get_staged_diff():
                     ):
                         filtered_diff.append(line)
                 return "\n".join(filtered_diff)
+
             else:
                 print("No changes staged for commit.")
+
     except Exception as e:
         print(f"An error occurred: {e}")
 
 
-def get_responses(diff: str) -> list[str]:
+@yaspin(text="Getting commit message...", color="yellow")
+def get_message(
+    diff: str, api_key, model, prompt, temp, max_tokens, top_p
+) -> list[str]:
     responses = []
-    client = Groq(api_key=GROQ_API_KEY)
+    client = Groq(api_key=api_key)
     for _ in range(3):
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model=model,
             messages=[
                 {
                     "role": "system",
-                    "content": """
-                    You are a GitHub commit writer. Write a well-crafted GitHub commit based off this git diff.
-                    Consider each change made as well as how each change relates to other changes.
-                    Your commit message should be short.
-                    Respond using JSON ONLY in the following schema:
-                    { "message" : "Your commit message" }""",
+                    "content": prompt,
                 },
                 {"role": "user", "content": str(diff)},
             ],
-            temperature=1,
-            max_tokens=512,
-            top_p=1,
+            temperature=temp,
+            max_tokens=max_tokens,
+            top_p=top_p,
             stream=False,
             stop=None,
         )
@@ -79,29 +84,188 @@ def get_responses(diff: str) -> list[str]:
     return responses
 
 
-def main():
-    diff = get_staged_diff()
-    responses = get_responses(diff)
+@click.group()
+def cli():
+    """A CLI tool automatically writes your git commit messages."""
+    pass
 
-    if responses:
-        print("Responses:")
-        choices = responses
 
-        questions = [
-            {
-                "type": "list",
-                "message": "Please select an option:",
-                "choices": choices,
-                "name": "option",
+@cli.command()
+def init():
+    """Create a config file"""
+    # Get the provider
+
+    provider = inquirer.select(
+        message="Select a provider:",
+        choices=[
+            "openai",
+            "groq",
+            "hugging face inference api",
+            "hugging face spaces",
+            "ollama",
+            Choice(value=None, name="Exit"),
+        ],
+        default="groq",
+    ).execute()
+
+    match provider:
+        case "openai":
+            raise NotImplementedError("OpenAI is not supported yet.")
+
+        case "groq":
+            # Get the GROQ API key
+            api_key = inquirer.secret(
+                message="Enter your Groq API key:",
+                validate=lambda result: result != "",
+            ).execute()
+
+            models = [
+                # "llama-3.1-405b-reasoning",
+                "llama-3.1-70b-versatile",
+                "llama-3.1-8b-instant",
+                "llama3-groq-70b-8192-tool-use-preview",
+                "llama3-groq-8b-8192-tool-use-preview",
+                "llama-guard-3-8b",
+                "llama3-70b-8192",
+                "llama3-8b-8192",
+                "mixtral-8x7b-32768",
+                "gemma-7b-it",
+                "gemma2-9b-it",
+            ]
+
+            # Get the GROQ model
+            selected_model = inquirer.select(
+                message="Select a model:",
+                choices=models,
+                default="llama-3.1-405b-reasoning",
+            ).execute()
+
+            # Get the system prompt
+            system_prompt = inquirer.text(
+                message="Enter a system prompt:",
+                validate=lambda result: result != "",
+            ).execute()
+
+            # Write the config file
+            config = {
+                "provider": provider,
+                provider: {
+                    "api_key": api_key,
+                    "model": selected_model,
+                    "system_prompt": system_prompt,
+                },
             }
-        ]
 
-        result = prompt(questions)
+            with open("config.json", "w") as f:
+                f.write(json.dumps(config, indent=2))
 
-        # git commit -m "Your commit message"
-        subprocess.run(["git", "commit", "-m", str(result["option"])])
-        print("Committed successfully.")
+        case "hugging face inference api":
+            raise NotImplementedError(
+                "Hugging Face Inference API is not supported yet."
+            )
+
+        case "hugging face spaces":
+            raise NotImplementedError("Hugging Face Spaces is not supported yet.")
+
+        case "ollama":
+            raise NotImplementedError("Ollama is not supported yet.")
+
+        case _:
+            print("Exiting...")
+            return
+
+
+@cli.command()
+@click.option(
+    "-t", "--temp", default=0.75, help="The temperature of the model.", type=float
+)
+@click.option(
+    "-m",
+    "--max_tokens",
+    default=128,
+    help="The maximum number of tokens the model can generate.",
+    type=int,
+)
+@click.option(
+    "-p",
+    "--top_p",
+    default=1,
+    help="The nucleus sampling probability.",
+    type=float,
+)
+def commit(temp, max_tokens, top_p):
+    """Automatically write your git commit messages."""
+    config = json.loads(open("config.json").read())
+    try:
+        provider = config["provider"]
+        api_key = config[provider]["api_key"]
+        prompt = config[provider]["system_prompt"]
+    except KeyError:
+        rprint("[red]Error:[/red] Config file is missing required fields.")
+        rprint(
+            "[yellow]Please run [bold]autocommit init[/bold] to create a config file.[/yellow]"
+        )
+        subprocess.run(["python", __file__, "init"])
+
+    diff = get_staged_diff()
+    while True:
+        responses = get_message(
+            diff, api_key, config[provider]["model"], prompt, temp, max_tokens, top_p
+        )
+
+        result = inquirer.select(
+            message="Select a commit message:",
+            choices=[
+                Choice(
+                    value=response,
+                    name=f"{i + 1}) "
+                    + "\n      ".join(
+                        textwrap.wrap(response, os.get_terminal_size().columns - 6)
+                    ),
+                )
+                for i, response in enumerate(responses)
+            ]
+            + [
+                Separator(),
+                Choice(value="redo", name="Redo"),
+                Choice(value=None, name="Exit"),
+            ],
+            default=responses[0],
+        ).execute()
+
+        if result == "redo":
+            continue
+
+        if result is None:
+            sys.exit(0)
+
+        else:
+            break
+
+    save = inquirer.confirm(
+        message="Save this commit message for future use?",
+        default=True,
+    ).execute()
+
+    if save:
+        result = json.dumps(
+            {
+                "time": time.time(),
+                "diff": diff,
+                "responses": responses,
+                "selected": responses[0],
+            },
+            sort_keys=True,
+        )
+
+        with open(f"tmp/{hash(result)}.txt", "a") as f:
+            f.write(result)
+            f.write("\n")
+
+    # git commit -m "Your commit message" and hide the output
+    subprocess.run(["git", "commit", "-m", result], stdout=subprocess.DEVNULL)
+    rprint("[green]Commit successful![/green]")
 
 
 if __name__ == "__main__":
-    main()
+    cli()
