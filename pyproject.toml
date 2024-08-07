@@ -22,4 +22,4 @@ dependencies = ["InquirerPy", "python-dotenv", "groq"]
 dev = ["ruff", "pytest"]
 
 [project.scripts]
-autocommit = "autocommit.main:main"
+autocommit = "autocommit.main:cli"
