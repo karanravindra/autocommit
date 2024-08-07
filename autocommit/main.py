@@ -208,6 +208,10 @@ def commit(temp, max_tokens, top_p):
         subprocess.run(["python", __file__, "init"])
 
     diff = get_staged_diff()
+    if not diff:
+        rprint("[yellow]WARNING:[/yellow] No changes staged for commit.")
+        sys.exit(0)
+
     while True:
         responses = get_message(
             diff, api_key, config[provider]["model"], prompt, temp, max_tokens, top_p
@@ -248,7 +252,7 @@ def commit(temp, max_tokens, top_p):
     ).execute()
 
     if save:
-        result = json.dumps(
+        save_dict = json.dumps(
             {
                 "time": time.time(),
                 "diff": diff,
@@ -258,8 +262,8 @@ def commit(temp, max_tokens, top_p):
             sort_keys=True,
         )
 
-        with open(f"tmp/{hash(result)}.txt", "a") as f:
-            f.write(result)
+        with open(f"tmp/{hash(save_dict)}.txt", "a") as f:
+            f.write(save_dict)
             f.write("\n")
 
     # git commit -m "Your commit message" and hide the output
